@@ -40,8 +40,8 @@ void runBFS(vertex* V, int* E, int vertices, int edges) {
 
     /*for (int i = 1; i < vertices; i++) {
         std::cout << i << " " << visited[i] << std::endl;
-    }
-    */
+    }*/
+    
 }
 
 int main(int argc, char* argv[]) {
