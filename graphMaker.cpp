@@ -5,8 +5,8 @@ using namespace std;
 
 int main() {
 
-    int vertices = 30;
-    int edges = 60;
+    int vertices = 300000;
+    int edges = 9000000;
 
     srand(time(NULL));
 

@@ -3,3 +3,5 @@ sequential
 script
 graphMaker
 main
+*.txt
+*.tsv

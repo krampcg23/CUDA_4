@@ -39,7 +39,9 @@ void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited) {
     int length = V[n].numAdj;
     if (length == 0) return;
     for (int i = start; i < start + length; i++) {
-        q.push(E[i]);
+        if(!visited[E[i]]){
+            q.push(E[i]);
+        }
     }
 }
 
