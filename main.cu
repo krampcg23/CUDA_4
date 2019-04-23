@@ -13,13 +13,13 @@ struct vertex {
 };
 
 
-__global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNotEmpty) {
+__global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, int* cost, bool* qNotEmpty) {
     int id = threadIdx.x + blockIdx.x * blockDim.x;
     
     if (q[id] == true && visited[id] == false) {
         q[id] = false;
         visited[id] = true;
-        __syncthreads();
+        //__syncthreads();
         int start = V[id].start;
         int length = V[id].numAdj;
         if (length == 0) return;
@@ -27,7 +27,8 @@ __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNo
             int adjacent = E[i];
             if (visited[adjacent] == false) {
                 q[adjacent] = true;
-                __syncthreads();
+                cost[adjacent] = cost[id] + 1;
+                //__syncthreads();
                 *qNotEmpty = true;
             }
         }
@@ -35,13 +36,14 @@ __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNo
     return;
 }
 
-void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited) {
+void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited, int* cost) {
     visited[n] = true;
     int start = V[n].start;
     int length = V[n].numAdj;
     if (length == 0) return;
     for (int i = start; i < start + length; i++) {
         if(!visited[E[i]]){
+            cost[E[i]] = cost[n] + 1;
             q.push(E[i]);
         }
     }
@@ -103,8 +105,9 @@ int main(int argc, char* argv[]) {
         counter++;
     }
     bool* visited = new bool[vertices];
+    int* cost = new int[vertices];
     clock_t begin = clock();
-    runBFS(V, E, vertices, edges, visited);
+    runBFS(V, E, vertices, edges, visited, cost);
     clock_t end = clock();
     double timeSec = (end - begin) / static_cast<double>( CLOCKS_PER_SEC );
     std::cout << "Sequential Execution Time: " << timeSec << std::endl;
@@ -114,9 +117,11 @@ int main(int argc, char* argv[]) {
 
     bool* q = new bool[vertices];
     bool* visitedParallel = new bool[vertices];
+    int* costParallel = new bool[vertices];
     for (int i = 0; i < vertices; i++) {
         q[i] = false;
         visitedParallel[i] = false;
+        costParallel[i] = 0;
     }
     q[1] = true;
 
@@ -125,12 +130,14 @@ int main(int argc, char* argv[]) {
     bool* deviceQueue;
     bool* deviceVisited;
     bool* deviceQNotEmpty;
+    int* deviceCost;
 
     cudaMalloc(&deviceVertex, sizeof(vertex) * vertices);
     cudaMalloc(&deviceEdges, sizeof(int) * edges);
     cudaMalloc(&deviceQueue, sizeof(bool) * vertices);
     cudaMalloc(&deviceVisited, sizeof(bool) * vertices);
     cudaMalloc(&deviceQNotEmpty, sizeof(bool));
+    cudaMalloc(&deviceCost, sizeof(int) * vertices);
 
     cudaMemcpy(deviceVertex, V, sizeof(vertex) * vertices, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceEdges, E, sizeof(int) * edges, cudaMemcpyHostToDevice);
@@ -149,7 +156,7 @@ int main(int argc, char* argv[]) {
     while(*qNotEmpty) {
         *qNotEmpty = false;
         cudaMemcpy(deviceQNotEmpty, qNotEmpty, sizeof(bool), cudaMemcpyHostToDevice);
-        parallelBFS <<<numBlocks, threadsPerBlock>>> (deviceVertex, deviceEdges, deviceQueue, deviceVisited, deviceQNotEmpty);
+        parallelBFS <<<numBlocks, threadsPerBlock>>> (deviceVertex, deviceEdges, deviceQueue, deviceVisited, deviceCost, deviceQNotEmpty);
         cudaMemcpy(qNotEmpty, deviceQNotEmpty, sizeof(bool), cudaMemcpyDeviceToHost);
     }
     cudaEventRecord(stop);
@@ -158,10 +165,10 @@ int main(int argc, char* argv[]) {
     time *= 0.001;
     printf("Kernel Execution Time:  %3.5f s \n", time);
 
-    cudaMemcpy(visitedParallel, deviceVisited, sizeof(bool) * vertices, cudaMemcpyDeviceToHost);
+    cudaMemcpy(costParallel, deviceCost, sizeof(bool) * vertices, cudaMemcpyDeviceToHost);
     for (int i = 1; i < vertices; i++) {
         //printf("%i, %i, %i\n", i, visitedParallel[i], visited[i]);
-        assert(visitedParallel[i] == visited[i]);
+        assert(costParallel[i] == cost[i]);
     }
     std::cout << "Speedup of: " << timeSec / time << std::endl;
     std::cout << "Output matches serial execution" << std::endl;
