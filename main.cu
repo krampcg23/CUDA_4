@@ -19,6 +19,7 @@ __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNo
     if (q[id] == true && visited[id] == false) {
         q[id] = false;
         visited[id] = true;
+        __syncthreads();
         int start = V[id].start;
         int length = V[id].numAdj;
         if (length == 0) return;
@@ -26,6 +27,7 @@ __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNo
             int adjacent = E[i];
             if (visited[adjacent] == false) {
                 q[adjacent] = true;
+                __syncthreads();
                 *qNotEmpty = true;
             }
         }
@@ -78,8 +80,11 @@ int main(int argc, char* argv[]) {
     getline(file, firstLine);
     std::stringstream ss(firstLine);
 
-    int vertices, edges;
-    ss >> vertices >> edges;
+    int vertices, edges, numThreads;
+    ss >> numThreads;
+    getline(file, firstLine);
+    std::stringstream ss1(firstLine);
+    ss1 >> vertices >> edges;
     vertices++; edges++;
     vertex* V = new vertex[vertices];
     int* E = new int[edges];
@@ -138,8 +143,8 @@ int main(int argc, char* argv[]) {
     cudaMemcpy(deviceVisited, visitedParallel, sizeof(bool) * vertices, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceQNotEmpty, qNotEmpty, sizeof(bool), cudaMemcpyHostToDevice);
 
-    dim3 threadsPerBlock(1024, 1, 1);
-    dim3 numBlocks(vertices / 1024 + 1, 1, 1);
+    dim3 threadsPerBlock(numThreads, 1, 1);
+    dim3 numBlocks(vertices / numThreads + 1, 1, 1);
 
     cudaEvent_t start, stop;
     float time;

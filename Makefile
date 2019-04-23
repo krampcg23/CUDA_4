@@ -9,4 +9,4 @@ graphMaker: graphMaker.cpp
 main: main.cu
 	nvcc -std=c++11 main.cu -o main -arch=sm_35 -D_FORCE_INLINES
 clean:
-	rm *.o
+	rm *.o main script sequential graphMaker
