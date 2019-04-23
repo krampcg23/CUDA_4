@@ -1,12 +1,15 @@
 CXX = g++
-all: sequential graphMaker main
-sequential: sequential.cpp
-	g++ -std=c++11 sequential.cpp -o sequential
+all: pureParallel graphMaker main pureSerial
+pureSerial: pureSerial.cpp
+	g++ -std=c++11 pureSerial.cpp -o serial
 
 graphMaker: graphMaker.cpp
 	g++ -std=c++11 graphMaker.cpp -o graphMaker
 
 main: main.cu
 	nvcc -std=c++11 main.cu -o main -arch=sm_35 -D_FORCE_INLINES
+
+pureParallel: pureParallel.cu
+	nvcc -std=c++11 pureParallel.cu -o parallel -arch=sm_35 -D_FORCE_INLINES
 clean:
-	rm *.o main script sequential graphMaker
+	rm *.o main script sequential graphMaker serial parallel
