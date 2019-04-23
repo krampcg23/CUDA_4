@@ -1,7 +1,8 @@
 *.o
-sequential
 script
 graphMaker
 main
 *.txt
 *.tsv
+parallel
+serial

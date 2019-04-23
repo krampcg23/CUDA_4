@@ -35,40 +35,16 @@ __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNo
     return;
 }
 
-void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited) {
-    visited[n] = true;
-    int start = V[n].start;
-    int length = V[n].numAdj;
-    if (length == 0) return;
-    for (int i = start; i < start + length; i++) {
-        if(!visited[E[i]]){
-            q.push(E[i]);
-        }
-    }
-}
-
-void runBFS(vertex* V, int* E, int vertices, int edges, bool* visited) {
-    for (int i = 0; i < vertices; i++) {
-        visited[i] = false;
-    }
-
-    std::queue<int> q;
-    fillQueue(V, E, 1, q, visited);
-    
-    while(!q.empty()) {
-        int vert = q.front();
-        q.pop();
-        if (!visited[vert]) {
-            fillQueue(V, E, vert, q, visited);
-        }
-    }
-}
-
 int main(int argc, char* argv[]) {
 
     if (argc != 2) {
         std::cerr << "Incorrect Usage, please use ./main [filename] " << std::endl;
     }
+    cudaEvent_t start, stop;
+    float time;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    cudaEventRecord(start);
     std::string filename = argv[1];
     std::ifstream file(filename);
     std::string firstLine;
@@ -102,12 +78,6 @@ int main(int argc, char* argv[]) {
         E[counter] = to;
         counter++;
     }
-    bool* visited = new bool[vertices];
-    clock_t begin = clock();
-    runBFS(V, E, vertices, edges, visited);
-    clock_t end = clock();
-    double timeSec = (end - begin) / static_cast<double>( CLOCKS_PER_SEC );
-    std::cout << "Sequential Execution Time: " << timeSec << std::endl;
 
     bool* qNotEmpty = new bool;
     *qNotEmpty = true;
@@ -141,11 +111,6 @@ int main(int argc, char* argv[]) {
     dim3 threadsPerBlock(numThreads, 1, 1);
     dim3 numBlocks(vertices / numThreads + 1, 1, 1);
 
-    cudaEvent_t start, stop;
-    float time;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
     while(*qNotEmpty) {
         *qNotEmpty = false;
         cudaMemcpy(deviceQNotEmpty, qNotEmpty, sizeof(bool), cudaMemcpyHostToDevice);
@@ -156,15 +121,7 @@ int main(int argc, char* argv[]) {
     cudaEventSynchronize(stop);
     cudaEventElapsedTime(&time, start, stop);
     time *= 0.001;
-    printf("Kernel Execution Time:  %3.5f s \n", time);
-
-    cudaMemcpy(visitedParallel, deviceVisited, sizeof(bool) * vertices, cudaMemcpyDeviceToHost);
-    for (int i = 1; i < vertices; i++) {
-        //printf("%i, %i, %i\n", i, visitedParallel[i], visited[i]);
-        assert(visitedParallel[i] == visited[i]);
-    }
-    std::cout << "Speedup of: " << timeSec / time << std::endl;
-    std::cout << "Output matches serial execution" << std::endl;
+    printf("Total Execution Time:  %3.5f s \n", time);
 
     return 0;
 

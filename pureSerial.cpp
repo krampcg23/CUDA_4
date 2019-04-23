@@ -4,6 +4,7 @@
 #include <sstream>
 #include <string>
 #include <ctime>
+#include <assert.h>
 
 struct vertex {
     int start;
@@ -17,12 +18,13 @@ void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited) {
     int length = V[n].numAdj;
     if (length == 0) return;
     for (int i = start; i < start + length; i++) {
-        q.push(E[i]);
+        if(!visited[E[i]]){
+            q.push(E[i]);
+        }
     }
 }
 
-void runBFS(vertex* V, int* E, int vertices, int edges) {
-    bool* visited = new bool[vertices];
+void runBFS(vertex* V, int* E, int vertices, int edges, bool* visited) {
     for (int i = 0; i < vertices; i++) {
         visited[i] = false;
     }
@@ -37,11 +39,6 @@ void runBFS(vertex* V, int* E, int vertices, int edges) {
             fillQueue(V, E, vert, q, visited);
         }
     }
-
-    /*for (int i = 1; i < vertices; i++) {
-        std::cout << i << " " << visited[i] << std::endl;
-    }*/
-    
 }
 
 int main(int argc, char* argv[]) {
@@ -49,14 +46,19 @@ int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Incorrect Usage, please use ./main [filename] " << std::endl;
     }
+
+    clock_t begin = clock();
     std::string filename = argv[1];
     std::ifstream file(filename);
     std::string firstLine;
     getline(file, firstLine);
     std::stringstream ss(firstLine);
 
-    int vertices, edges;
-    ss >> vertices >> edges;
+    int vertices, edges, numThreads;
+    ss >> numThreads;
+    getline(file, firstLine);
+    std::stringstream ss1(firstLine);
+    ss1 >> vertices >> edges;
     vertices++; edges++;
     vertex* V = new vertex[vertices];
     int* E = new int[edges];
@@ -79,11 +81,11 @@ int main(int argc, char* argv[]) {
         E[counter] = to;
         counter++;
     }
-    clock_t begin = clock();
-    runBFS(V, E, vertices, edges);
+    bool* visited = new bool[vertices];
+    runBFS(V, E, vertices, edges, visited);
     clock_t end = clock();
     double timeSec = (end - begin) / static_cast<double>( CLOCKS_PER_SEC );
-    std::cout << "Sequential Execution Time: " << timeSec << std::endl;
+    std::cout << "Total Sequential Execution Time: " << timeSec << std::endl;
 
     return 0;
 
