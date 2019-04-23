@@ -3,6 +3,7 @@
 #include <queue>
 #include <sstream>
 #include <string>
+#include <ctime>
 
 struct vertex {
     int start;
@@ -37,9 +38,10 @@ void runBFS(vertex* V, int* E, int vertices, int edges) {
         }
     }
 
-    for (int i = 1; i < vertices; i++) {
+    /*for (int i = 1; i < vertices; i++) {
         std::cout << i << " " << visited[i] << std::endl;
     }
+    */
 }
 
 int main(int argc, char* argv[]) {
@@ -77,8 +79,11 @@ int main(int argc, char* argv[]) {
         E[counter] = to;
         counter++;
     }
-
+    clock_t begin = clock();
     runBFS(V, E, vertices, edges);
+    clock_t end = clock();
+    double timeSec = (end - begin) / static_cast<double>( CLOCKS_PER_SEC );
+    std::cout << "Sequential Execution Time: " << timeSec << std::endl;
 
     return 0;
 
