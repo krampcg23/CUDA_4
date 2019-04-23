@@ -4,9 +4,41 @@
 #include <sstream>
 #include <string>
 
-void fillWithNull(int* arr, int num) {
-    for (int i = 0; i < num; i++) {
-        arr[i] = -1;
+struct vertex {
+    int start;
+    int numAdj;
+    vertex() { numAdj = 0; start = -1; }
+};
+
+void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited) {
+    visited[n] = true;
+    int start = V[n].start;
+    int length = V[n].numAdj;
+    if (length == 0) return;
+    for (int i = start; i < start + length; i++) {
+        q.push(E[i]);
+    }
+}
+
+void runBFS(vertex* V, int* E, int vertices, int edges) {
+    bool* visited = new bool[vertices];
+    for (int i = 0; i < vertices; i++) {
+        visited[i] = false;
+    }
+
+    std::queue<int> q;
+    fillQueue(V, E, 1, q, visited);
+    
+    while(!q.empty()) {
+        int vert = q.front();
+        q.pop();
+        if (!visited[vert]) {
+            fillQueue(V, E, vert, q, visited);
+        }
+    }
+
+    for (int i = 1; i < vertices; i++) {
+        std::cout << i << " " << visited[i] << std::endl;
     }
 }
 
@@ -23,16 +55,15 @@ int main(int argc, char* argv[]) {
 
     int vertices, edges;
     ss >> vertices >> edges;
-    int* V = new int[vertices];
+    vertices++; edges++;
+    vertex* V = new vertex[vertices];
     int* E = new int[edges];
+    E[0] = 0;
 
-    fillWithNull(V, vertices);
-    fillWithNull(E, edges);
-
-    int currentVertex = 0;
-    int counter = 0;
-    V[0] = 0;
-    while (!file.eof()) {
+    int currentVertex = 1;
+    int counter = 1;
+    V[1].start = 1;
+    for (int i = 0; i < edges-1; i++) {
         std::string line;
         getline(file, line);
         std::stringstream ss2(line);
@@ -40,16 +71,14 @@ int main(int argc, char* argv[]) {
         ss2 >> to >> from;
         if (from != currentVertex) {
             currentVertex = from;
-            V[from] = counter;
+            V[from].start = counter;
         }
+        V[from].numAdj++;
         E[counter] = to;
         counter++;
     }
 
-    for (int i = 0; i < 5; i++) {
-        printf("%d, %d\n", V[i], E[i]);
-    }
-
+    runBFS(V, E, vertices, edges);
 
     return 0;
 
