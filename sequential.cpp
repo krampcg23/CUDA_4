@@ -67,8 +67,8 @@ int main(int argc, char* argv[]) {
         std::string line;
         getline(file, line);
         std::stringstream ss2(line);
-        int to, from;
-        ss2 >> to >> from;
+        int to, from, weight;
+        ss2 >> to >> from >> weight;
         if (from != currentVertex) {
             currentVertex = from;
             V[from].start = counter;
