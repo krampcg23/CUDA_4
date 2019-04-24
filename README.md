@@ -10,6 +10,8 @@ To run, type `./main [inputFile]`
 
 If you want to generate synthetic data, type `./graphMaker` which will auto generate a graph for you called `graph.txt`.  Otherwise, import your own file.
 
+For commenting on code, please check out `main.cu`
+
 ### Input file:
 The input file must look like the following:
 

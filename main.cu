@@ -13,6 +13,7 @@ struct vertex {
 };
 
 
+// Kernel for filling the cost array and flagging adjacent edges
 __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, int* cost, int vertices, bool* flags) {
     int id = threadIdx.x + blockIdx.x * blockDim.x;
     if (id > vertices) return;
@@ -33,6 +34,7 @@ __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, int* cost
     return;
 }
 
+// Flagged edges are now processed
 __global__ void parallelBFS_flags(vertex* V, int* E, bool* q, bool* visited, bool* qNotEmpty, int vertices, bool* flags) {
     int id = threadIdx.x + blockIdx.x * blockDim.x;
     if (id > vertices) return;
@@ -46,6 +48,7 @@ __global__ void parallelBFS_flags(vertex* V, int* E, bool* q, bool* visited, boo
     return;
 }
 
+// Serial code to fill in a queue given a vertex
 void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited, int* cost) {
     visited[n] = true;
     int start = V[n].start;
@@ -60,6 +63,7 @@ void fillQueue(vertex* V, int* E, int n, std::queue<int> &q, bool* visited, int*
     }
 }
 
+// Serial code to run the BFS algorithm
 void runBFS(vertex* V, int* E, int vertices, int edges, bool* visited, int* cost) {
     for (int i = 0; i < vertices; i++) {
         visited[i] = false;
@@ -86,6 +90,7 @@ int main(int argc, char* argv[]) {
     getline(file, firstLine);
     std::stringstream ss(firstLine);
 
+    // Read in the file and fill in the arrays
     int vertices, edges, numThreads;
     ss >> numThreads;
     getline(file, firstLine);
@@ -96,6 +101,7 @@ int main(int argc, char* argv[]) {
     int* E = new int[edges];
     E[0] = 0;
 
+    // Read in file and initialize data
     int currentVertex = 1;
     int counter = 1;
     V[1].start = 1;
@@ -119,12 +125,16 @@ int main(int argc, char* argv[]) {
         cost[i] = 999;
     }
     cost[1] = 0;
+
+    // Run the serial code
     clock_t begin = clock();
     runBFS(V, E, vertices, edges, visited, cost);
     clock_t end = clock();
     double timeSec = (end - begin) / static_cast<double>( CLOCKS_PER_SEC );
     std::cout << "Sequential Execution Time: " << timeSec << std::endl;
 
+
+    // Preparing the parallel code
     bool* qNotEmpty = new bool;
     *qNotEmpty = true;
 
@@ -147,6 +157,7 @@ int main(int argc, char* argv[]) {
     int* deviceCost;
     bool* deviceFlags;
 
+    // Allocate memory on GPU
     cudaMalloc(&deviceVertex, sizeof(vertex) * vertices);
     cudaMalloc(&deviceEdges, sizeof(int) * edges);
     cudaMalloc(&deviceQueue, sizeof(bool) * vertices);
@@ -155,6 +166,7 @@ int main(int argc, char* argv[]) {
     cudaMalloc(&deviceCost, sizeof(int) * vertices);
     cudaMalloc(&deviceFlags, sizeof(bool) * vertices);
 
+    // Copy memory to GPU
     cudaMemcpy(deviceVertex, V, sizeof(vertex) * vertices, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceEdges, E, sizeof(int) * edges, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceQueue, q, sizeof(bool) * vertices, cudaMemcpyHostToDevice);
@@ -166,6 +178,7 @@ int main(int argc, char* argv[]) {
     dim3 threadsPerBlock(1024, 1, 1);
     dim3 numBlocks(vertices / 1024 + 1, 1, 1);
 
+    // BFS Algorithm on GPU in parallel
     cudaEvent_t start, stop;
     float time;
     cudaEventCreate(&start);
@@ -188,6 +201,7 @@ int main(int argc, char* argv[]) {
 
     cudaMemcpy(costParallel, deviceCost, sizeof(int) * vertices, cudaMemcpyDeviceToHost);
     cudaMemcpy(visitedParallel, deviceVisited, sizeof(bool) * vertices, cudaMemcpyDeviceToHost);
+    // Ensure correctness
     for (int i = 1; i < vertices; i++) {
         assert(visitedParallel[i] == visited[i]);
     }
