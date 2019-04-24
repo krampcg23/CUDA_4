@@ -14,34 +14,43 @@ struct vertex {
 
 
 __global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, int* cost, int vertices, bool* flags) {
-    int id = threadIdx.x + blockIdx.x * blockDim.x;
-    if (id > vertices) return;
-    
-    if (q[id] == true) {
-        q[id] = false;
-        int start = V[id].start;
-        int length = V[id].numAdj;
-        if (length == 0) return;
-        for (int i = start; i < start + length; i++) {
-            int adjacent = E[i];
-            if (visited[adjacent] == false) {
-                cost[adjacent] = min(cost[adjacent], cost[id] + 1);
-                flags[adjacent] = true;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int numThreads = blockDim.x * gridDim.x;
+
+    for (int j = 0; j < vertices; j += numThreads) {
+        int id = tid + j; 
+        if (id > vertices) continue;
+        
+        if (q[id] == true) {
+            q[id] = false;
+            int start = V[id].start;
+            int length = V[id].numAdj;
+            if (length == 0) return;
+            for (int i = start; i < start + length; i++) {
+                int adjacent = E[i];
+                if (visited[adjacent] == false) {
+                    cost[adjacent] = min(cost[adjacent], cost[id] + 1);
+                    flags[adjacent] = true;
+                }
             }
-        }
-    }       
+        }       
+    }
     return;
 }
 
 __global__ void parallelBFS_flags(vertex* V, int* E, bool* q, bool* visited, bool* qNotEmpty, int vertices, bool* flags) {
-    int id = threadIdx.x + blockIdx.x * blockDim.x;
-    if (id > vertices) return;
-    
-    if (flags[id] == true) {
-        q[id] = true;
-        visited[id] = true;
-        *qNotEmpty = true;
-        flags[id] = false;
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    int numThreads = blockDim.x * gridDim.x;
+    for (int j = 0; j < vertices; j += numThreads) {
+        int id = tid + j; 
+        if (id > vertices) continue;
+        
+        if (flags[id] == true) {
+            q[id] = true;
+            visited[id] = true;
+            *qNotEmpty = true;
+            flags[id] = false;
+        }
     }
     return;
 }
@@ -164,7 +173,7 @@ int main(int argc, char* argv[]) {
     cudaMemcpy(deviceFlags, visitedParallel, sizeof(bool) * vertices, cudaMemcpyHostToDevice);
 
     dim3 threadsPerBlock(1024, 1, 1);
-    dim3 numBlocks(vertices / 1024 + 1, 1, 1);
+    dim3 numBlocks(400, 1, 1);
 
     cudaEvent_t start, stop;
     float time;

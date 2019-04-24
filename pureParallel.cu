@@ -13,25 +13,50 @@ struct vertex {
 };
 
 
-__global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, bool* qNotEmpty) {
-    int id = threadIdx.x + blockIdx.x * blockDim.x;
-    
-    if (q[id] == true && visited[id] == false) {
-        q[id] = false;
-        visited[id] = true;
-        __syncthreads();
-        int start = V[id].start;
-        int length = V[id].numAdj;
-        if (length == 0) return;
-        for (int i = start; i < start + length; i++) {
-            int adjacent = E[i];
-            if (visited[adjacent] == false) {
-                q[adjacent] = true;
-                __syncthreads();
-                *qNotEmpty = true;
+__global__ void parallelBFS(vertex* V, int* E, bool* q, bool* visited, int* cost, int vertices, bool* flags) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    //int numThreads = blockDim.x * gridDim.x;
+    int j = 0;
+
+    // Uncomment for load balance attempt
+ //   for (int j = 0; j < vertices; j += numThreads) {
+        int id = tid + j; 
+        //if (id > vertices) continue;
+        if (id > vertices) return;
+        
+        if (q[id] == true) {
+            q[id] = false;
+            int start = V[id].start;
+            int length = V[id].numAdj;
+            if (length == 0) return;
+            for (int i = start; i < start + length; i++) {
+                int adjacent = E[i];
+                if (visited[adjacent] == false) {
+                    cost[adjacent] = min(cost[adjacent], cost[id] + 1);
+                    flags[adjacent] = true;
+                }
             }
+        }       
+  //  }
+    return;
+}
+
+__global__ void parallelBFS_flags(vertex* V, int* E, bool* q, bool* visited, bool* qNotEmpty, int vertices, bool* flags) {
+    int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    //int numThreads = blockDim.x * gridDim.x;
+    int j = 0;
+    //for (int j = 0; j < vertices; j += numThreads) {
+        int id = tid + j; 
+        //if (id > vertices) continue;
+        if (id > vertices) return;
+        
+        if (flags[id] == true) {
+            q[id] = true;
+            visited[id] = true;
+            *qNotEmpty = true;
+            flags[id] = false;
         }
-    }
+  //  }
     return;
 }
 
@@ -84,37 +109,49 @@ int main(int argc, char* argv[]) {
 
     bool* q = new bool[vertices];
     bool* visitedParallel = new bool[vertices];
+    int* costParallel = new int[vertices];
     for (int i = 0; i < vertices; i++) {
         q[i] = false;
         visitedParallel[i] = false;
+        costParallel[i] = 999;
     }
     q[1] = true;
+    costParallel[1] = 0;
 
     vertex* deviceVertex;
     int* deviceEdges;
     bool* deviceQueue;
     bool* deviceVisited;
     bool* deviceQNotEmpty;
+    int* deviceCost;
+    bool* deviceFlags;
 
     cudaMalloc(&deviceVertex, sizeof(vertex) * vertices);
     cudaMalloc(&deviceEdges, sizeof(int) * edges);
     cudaMalloc(&deviceQueue, sizeof(bool) * vertices);
     cudaMalloc(&deviceVisited, sizeof(bool) * vertices);
     cudaMalloc(&deviceQNotEmpty, sizeof(bool));
+    cudaMalloc(&deviceCost, sizeof(int) * vertices);
+    cudaMalloc(&deviceFlags, sizeof(bool) * vertices);
 
     cudaMemcpy(deviceVertex, V, sizeof(vertex) * vertices, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceEdges, E, sizeof(int) * edges, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceQueue, q, sizeof(bool) * vertices, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceVisited, visitedParallel, sizeof(bool) * vertices, cudaMemcpyHostToDevice);
     cudaMemcpy(deviceQNotEmpty, qNotEmpty, sizeof(bool), cudaMemcpyHostToDevice);
+    cudaMemcpy(deviceCost, costParallel, sizeof(int) * vertices, cudaMemcpyHostToDevice);
+    cudaMemcpy(deviceFlags, visitedParallel, sizeof(bool) * vertices, cudaMemcpyHostToDevice);
 
-    dim3 threadsPerBlock(numThreads, 1, 1);
-    dim3 numBlocks(vertices / numThreads + 1, 1, 1);
+    dim3 threadsPerBlock(1024, 1, 1);
+    dim3 numBlocks(vertices / 1024 + 1, 1, 1);
 
+ 
     while(*qNotEmpty) {
         *qNotEmpty = false;
         cudaMemcpy(deviceQNotEmpty, qNotEmpty, sizeof(bool), cudaMemcpyHostToDevice);
-        parallelBFS <<<numBlocks, threadsPerBlock>>> (deviceVertex, deviceEdges, deviceQueue, deviceVisited, deviceQNotEmpty);
+        parallelBFS <<<numBlocks, threadsPerBlock>>> (deviceVertex, deviceEdges, deviceQueue, deviceVisited, deviceCost, vertices, deviceFlags);
+        parallelBFS_flags <<<numBlocks, threadsPerBlock>>> (deviceVertex, deviceEdges, deviceQueue, deviceVisited, deviceQNotEmpty, vertices, deviceFlags);
+        cudaThreadSynchronize();
         cudaMemcpy(qNotEmpty, deviceQNotEmpty, sizeof(bool), cudaMemcpyDeviceToHost);
     }
     cudaEventRecord(stop);
